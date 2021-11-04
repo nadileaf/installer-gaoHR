@@ -1,0 +1,482 @@
+# 新版简历解析部署，all in one
+# ------------------------ 简历解析，源文件文字/图像/坐标抽取 ------------------------
+# service: HTTP cvparser-v5-file-kneader:80
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvparser-v5-file-kneader
+  namespace: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cvparser-v5-file-kneader
+      app.kubernetes.io/part-of: cvparser-v5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cvparser-v5-file-kneader
+        app.kubernetes.io/part-of: cvparser-v5
+    spec:
+      containers:
+        # 简历解析，源文件文字/图像/坐标抽取服务 http
+        - name: cvparser-v5-file-kneader
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/file-kneader:0.2.21
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 500m
+              memory: 800Mi
+            limits:
+              cpu: 1
+              memory: 1000Mi
+          command: [ "bin/file-kneader", "-J-server", "-Dconfig.file=/conf/application.conf", "-Dlogback.configurationFile=/conf/logback.xml", "-J-XX:+UnlockExperimentalVMOptions", "-J-XX:+UseCGroupMemoryLimitForHeap" ]
+      imagePullSecrets:
+        - name: cn-hangzhou-regsecret
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: cvparser-v5-file-kneader
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-file-kneader
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 9090
+---
+# ------------------------ 简历解析分段模型 ------------------------
+# service: GRPC cvparser-v5-seg:8080
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvparser-v5-seg
+  namespace: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cvparser-v5-seg
+      app.kubernetes.io/part-of: cvparser-v5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cvparser-v5-seg
+        app.kubernetes.io/part-of: cvparser-v5
+    spec:
+      containers:
+        - name: cvparser-v5-seg
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/resume_seg:v1.2-pyc
+          imagePullPolicy: Always
+
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+          command:
+            - bash
+            - -c
+            - |
+              python3 run_grpc_app.pyc
+      imagePullSecrets:
+        - name: cn-hangzhou-regsecret
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: cvparser-v5-seg
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-seg
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: grpc
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+# ------------------------ 简历解析NER模型 ------------------------
+# service: GRPC cvparser-v5-ner:8081
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvparser-v5-ner
+  namespace: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cvparser-v5-ner
+      app.kubernetes.io/part-of: cvparser-v5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cvparser-v5-ner
+        app.kubernetes.io/part-of: cvparser-v5
+    spec:
+      containers:
+        - name: cvparser-v5-ner
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/resume_ner:v1.4-pyc
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          command:
+            - bash
+            - -c
+            - |
+              python3 run_grpc_app.pyc
+      imagePullSecrets:
+        - name: cn-hangzhou-regsecret
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: cvparser-v5-ner
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-ner
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: grpc
+      protocol: TCP
+      port: 8081
+      targetPort: 8081
+---
+# ------------------------ OCR模型 ------------------------
+# service: HTTP cvparser-v5-ocr:80
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvparser-v5-ocr
+  namespace: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cvparser-v5-ocr
+      app.kubernetes.io/part-of: cvparser-v5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cvparser-v5-ocr
+        app.kubernetes.io/part-of: cvparser-v5
+    spec:
+      containers:
+        - name: cvparser-v5-ocr
+          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-ocr:2.5
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "8000"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1000Mi
+            limits:
+              cpu: 1000m
+              memory: 1500Mi
+          command:
+            - bash
+            - -c
+            - |
+              python server.py
+      imagePullSecrets:
+        - name: cn-hangzhou-regsecret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cvparser-v5-ocr
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-ocr
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000
+# service: HTTP cvparser-v5-file-kneader:80
+---
+# ------------------------ 文件简历解析 ------------------------
+# service: HTTP cvparser-v5-file:80
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvparser-v5-file
+  namespace: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cvparser-v5-file
+      app.kubernetes.io/part-of: cvparser-v5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cvparser-v5-file
+        app.kubernetes.io/part-of: cvparser-v5
+    spec:
+      containers:
+        - name: cvparser-v5-file
+          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-file:0.0.5
+          imagePullPolicy: Always
+          env:
+            - name: FILE_KNEADER_HOST
+              value: cvparser-v5-file-kneader
+            - name: FILE_KNEADER_PORT
+              value: "80"
+            - name: FILE_KNEADER_VERSION
+              value: "v1"
+
+            - name: BLOCK_SEG_HOST
+              value: cvparser-v5-seg
+            - name: BLOCK_SEG_PORT
+              value: "8080"
+
+            - name: NER_HOST
+              value: cvparser-v5-ner
+            - name: NER_PORT
+              value: "8081"
+
+            - name: OCR_HOST
+              value: cvparser-v5-ocr
+            - name: OCR_PORT
+              value: "80"
+
+            - name: PYTHONPATH
+              value: "./"
+
+            - name: EXP_MAX_HEAD_N
+              value: "5"
+
+          resources:
+            requests:
+              cpu: 400m
+              memory: 800Mi
+            limits:
+              cpu: 800m
+              memory: 1000Mi
+          command:
+            - bash
+            - -c
+            - |
+              uvicorn cvparser_file.service.http_server:app --host '0.0.0.0' --port 8080 --workers 2
+      imagePullSecrets:
+        - name: cn-hangzhou-regsecret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cvparser-v5-file
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-file
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+# ------------------------ 简历解析入口 ------------------------
+# service: GRPC cvparser-v5-entrance:80 使用envoy转换http请求]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvparser-v5-entrance
+  namespace: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cvparser-v5-entrance
+      app.kubernetes.io/part-of: cvparser-v5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cvparser-v5-entrance
+        app.kubernetes.io/part-of: cvparser-v5
+      annotations:
+        sidecar.istio.io/userVolumeMount: '[{"name":"cvparser-v5-envoy-grpc-descriptor","mountPath":"/etc/envoy"}]'
+    spec:
+      initContainers:
+        # 初始化envoy descriptor（gateway transfer http -> grpc）
+        - name: init-envoy-grpc-descriptor
+          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-entrance:0.0.5a1
+          imagePullPolicy: Always
+          command:
+            - bash
+            - -c
+            - |
+              cp /app/cvparser_descriptor_set.pb /data/cvparser_descriptor_set.pb
+          volumeMounts:
+            - mountPath: /data
+              name: cvparser-v5-envoy-grpc-descriptor
+
+      containers:
+        - name: cvparser  # 简历解析入口
+          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-entrance:0.0.5a1
+          imagePullPolicy: Always
+          env:
+            - name: LOG_LEVEL
+              value: INFO
+            - name: GRPC_PORT
+              value: "19090"
+            - name: CVPARSER_FILE_URL
+              value: cvparser-v5-file
+          resources:
+            requests:
+              cpu: 500m
+              memory: 800Mi
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+          command:
+            - bash
+            - -c
+            - |
+              uvicorn cvparser_entrance.http_server:app --host '0.0.0.0' --port 8080 --workers 1 &
+              python cvparser_entrance/servicer/cvparser_servicer.pyc
+      imagePullSecrets:
+        - name: cn-hangzhou-regsecret
+      volumes:
+        - name: cvparser-v5-envoy-grpc-descriptor
+          emptyDir: { }
+---
+# http server will be deprecated soon
+apiVersion: v1
+kind: Service
+metadata:
+  name: cvparser-v5-entrance
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-entrance
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cvparser-v5-entrance-grpc
+  namespace: product
+spec:
+  selector:
+    app.kubernetes.io/name: cvparser-v5-entrance
+    app.kubernetes.io/part-of: cvparser-v5
+  ports:
+    - name: grpc-envoy
+      protocol: TCP
+      port: 80
+      targetPort: 19090
+    - name: grpc
+      protocol: TCP
+      port: 19090
+      targetPort: 19090
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cvparser-v5-grpc-transcoder
+  namespace: product
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: cvparser-v5-entrance
+      app.kubernetes.io/part-of: cvparser-v5
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+          portNumber: 19090
+      patch:
+        operation: INSERT_FIRST
+        value:
+          name: envoy.filters.http.grpc_json_transcoder
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_json_transcoder.v3.GrpcJsonTranscoder
+            services:
+              - com.mesoor.cloud.cvparser.v1alpha1.ParserService
+            print_options:
+              add_whitespace: true
+              always_print_enums_as_ints: false
+              always_print_primitive_fields: true
+              preserve_proto_field_names: true
+            convert_grpc_status: true
+            proto_descriptor: /etc/envoy/cvparser_descriptor_set.pb
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cvparse-v5
+  namespace: product
+spec:
+  hosts:
+    - cvparser-v5-entrance-grpc.product.svc.cluster.local # develop should be replaced with customer namespace in local deployment
+  gateways:
+    - cvparser-v5-entrance-gateway
+    - mesh
+  http:
+    - match:
+        - uri:
+            regex: .*
+      route:
+        - destination:
+            host: cvparser-v5-entrance-grpc
+            subset: cvparser-v5-entrance-grpc
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: cvparser-v5-entrance-gateway
+  namespace: product
+spec:
+  selector:
+    app: istio-ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cvparse-v5-destination-rule
+  namespace: product
+spec:
+  host: cvparser-v5-entrance-grpc
+  subsets:
+    - name: cvparser-v5-entrance-grpc
+      labels:
+        app.kubernetes.io/name: cvparser-v5-entrance
+        app.kubernetes.io/part-of: cvparser-v5
