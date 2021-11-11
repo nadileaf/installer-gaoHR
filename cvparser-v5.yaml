@@ -22,7 +22,7 @@ spec:
         # 简历解析，源文件文字/图像/坐标抽取服务 http
         - name: cvparser-v5-file-kneader
           image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/file-kneader:0.2.21
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           resources:
             requests:
               cpu: 500m
@@ -71,7 +71,7 @@ spec:
       containers:
         - name: cvparser-v5-seg
           image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/resume_seg:v1.2-pyc
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
 
           resources:
             requests:
@@ -125,7 +125,7 @@ spec:
       containers:
         - name: cvparser-v5-ner
           image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/resume_ner:v1.4-pyc
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           resources:
             requests:
               cpu: "1"
@@ -177,8 +177,8 @@ spec:
     spec:
       containers:
         - name: cvparser-v5-ocr
-          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-ocr:2.5
-          imagePullPolicy: Always
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/cvparser-ocr:2.5
+          imagePullPolicy: IfNotPresent
           env:
             - name: PORT
               value: "8000"
@@ -234,8 +234,8 @@ spec:
     spec:
       containers:
         - name: cvparser-v5-file
-          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-file:0.0.5
-          imagePullPolicy: Always
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/cvparser-file:0.0.5
+          imagePullPolicy: IfNotPresent
           env:
             - name: FILE_KNEADER_HOST
               value: cvparser-v5-file-kneader
@@ -319,8 +319,8 @@ spec:
       initContainers:
         # 初始化envoy descriptor（gateway transfer http -> grpc）
         - name: init-envoy-grpc-descriptor
-          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-entrance:0.0.5a1
-          imagePullPolicy: Always
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/cvparser-entrance:0.0.5a1
+          imagePullPolicy: IfNotPresent
           command:
             - bash
             - -c
@@ -332,8 +332,8 @@ spec:
 
       containers:
         - name: cvparser  # 简历解析入口
-          image: 722740969534.dkr.ecr.cn-northwest-1.amazonaws.com.cn/cvparser-entrance:0.0.5a1
-          imagePullPolicy: Always
+          image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/cvparser-entrance:0.0.5a1
+          imagePullPolicy: IfNotPresent
           env:
             - name: LOG_LEVEL
               value: INFO
