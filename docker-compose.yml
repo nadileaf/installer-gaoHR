@@ -51,8 +51,5 @@ services:
       GRPC_PORT: "19090"
       CVPARSER_FILE_URL: "cvparser-v5-file"
     command: bash -c | uvicorn cvparser_entrance.http_server:app --host '0.0.0.0' --port 8080 
-  init-envoy-grpc-descriptor:
-    image: registry.cn-hangzhou.aliyuncs.com/mesoor-ai/cvparser-entrance:0.0.5a1
-    command: bash -c | cp /app/cvparser_descriptor_set.pb /data/cvparser_descriptor_set.pb
   ports:
    - "8888:8080"
